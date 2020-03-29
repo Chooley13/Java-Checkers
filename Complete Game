@@ -1,0 +1,576 @@
+import java.util.Scanner;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.FileNotFoundException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+public class checkers1 {
+	
+	final static int BOARD_SIZE = 8;
+	final static char BLACK = 'b';
+	final static char WHITE = 'w';
+	final static char BKING = 'B';
+	final static char WKING = 'W';
+	final static char EMPTY = ' ';
+	final static int ASCII_A = 65;
+	final static int ASCII_1 = 49;
+	final static String FILENAME = "oldgames.txt";
+
+	// shows menu
+	public static void main(String[] args) {
+		
+		Scanner input = new Scanner(System.in);
+		
+		// show the menu
+		System.out.println("Checkers \n");
+		System.out.println("1. Developers");
+		System.out.println("2. How to play"); 
+	 	System.out.println("3. Play");
+	 	System.out.println("4. Previous winners");
+	 	System.out.println("5. Exit");
+		
+	 	int menu = 0;
+		
+		do {
+			
+			if (input.hasNextInt())
+				menu = input.nextInt();
+			
+			input.nextLine();
+			
+			switch (menu) {
+				case 1: System.out.println("Krisztina Koles and Charles Lewis");
+						break;
+				case 2: System.out.println(
+						"* Checkers is played by two opponents on opposite sides of the gameboard. One player has the black pieces, the other has the white pieces. Players alternate turns.\n"
+						+ "* You move by typing the coordinates on the board, e.g. From: C2 To: D3\n"
+						+ "* A player may not move an opponent's piece. A move consists of moving a piece diagonally to an adjacent unoccupied square.\n"
+						+ "* Regular pieces can only move diagonally forwards.\n"
+						+ "* If the adjacent square contains an opponent's piece, and the square immediately beyond it is vacant, the piece may be captured (and removed from the game) by jumping over it.\n"
+						+ "* Capturing is not mandatory in this version of the game.\n"
+						+ "* Multiple enemy pieces can be captured in a single turn by successive jumps made by the same piece.\n"
+						+ "* When a piece reaches the opponent's first row, it becomes a king and gains the ability to move and capture backwards.\n"
+						+ "* The game is over when a player loses all their pieces or cannot make a move due to being blocked.\n"
+						+ "* You can concede a game by typing 'concede'");
+						break;
+				case 3:	gamePlay(input);
+						System.out.println("Checkers \n");
+						System.out.println("1. Developers");
+						System.out.println("2. How to play"); 
+					 	System.out.println("3. Play");
+					 	System.out.println("4. Previous winners");
+					 	System.out.println("5. Exit");
+						break;
+				case 4: readFile();
+						break;
+				case 5: System.out.println("Goodbye"); 
+						input.close();
+						System.exit(1);
+				default: System.out.println("Incorrect input, try again:");
+			}
+		} while (menu > 5 || menu < 1 || input.hasNextInt());
+		
+		input.close();
+		
+	}
+	
+	// does the game
+	public static void gamePlay(Scanner input) {
+		
+		int[] from = new int[2];
+		int[] to = new int[2];
+		char [][]board = initboard(BOARD_SIZE);
+		boolean turn = true;
+		boolean repeat = false;
+		boolean validPiece = false;
+		boolean concede = false;
+		String player1;
+		String player2;
+		SimpleDateFormat date = new SimpleDateFormat("MMMM dd, yyyy");
+		SimpleDateFormat time = new SimpleDateFormat("HH:mm");
+		
+		Date startDate = new Date();
+		Date startTime = new Date();
+		
+		// get player names
+		System.out.print("Enter player 1 (black): ");
+		player1 = input.nextLine();
+		System.out.print("Enter player 2 (white): ");
+		player2 = input.nextLine();
+		
+		System.out.println("The game between " +  player1 + " and " + player2 + " started on " + date.format(startDate) + " at " + time.format(startTime));
+		
+		display(board);
+		
+		// play game
+		do {
+			
+			if (turn)
+				System.out.println(player1 + "'s (black) turn!");
+			else
+				System.out.println(player2 + "'s (white) turn!");
+		
+			// skips "from" if they can make a new jump
+			if(!repeat) {
+				System.out.print("From: ");
+				getMove(input, from);
+			}
+			
+			// concede condition for "From: "
+			if (from[0] == from[1] && from[0] == -1) {
+
+				to[0] = from[0];
+				to[1] = from[1];
+				
+				concede = true;
+				
+			} else {
+
+				// making sure they pick a piece they can move
+				for(int r = 0; r < BOARD_SIZE; r++) {
+					for(int c = 0; c < BOARD_SIZE; c++) {
+						if(validMove(false, false, turn, from[0], from[1], r, c, board)) {
+							validPiece = true;
+						}
+					}
+				}
+			}
+
+			if(validPiece && !concede) {
+				System.out.print("To: ");
+				getMove(input, to);
+			} else
+				System.out.println("You can't move from that square.");
+			
+			// concede condition for "To: "
+			if (to[0] == to[1] && to[0] == -1) {
+				
+				concede = true;
+				
+			} else if (validPiece) {
+				// change turn
+				if (validMove(true, false, turn, from[0], from[1], to[0], to[1], board)) {
+					if (!movePiece(turn, from[0], from[1], to[0], to[1], board)) {
+						turn = !turn;
+						repeat = false;
+						validPiece = false;
+					// give player another jump if he jumped already and there's another removable enemy piece
+					} else {
+						from[0] = to[0];
+						from[1] = to[1];
+						repeat = true;
+						if (turn)
+							System.out.println(player1 + " (black) can move piece at " + (char)(to[1]+ASCII_A) + (char)(to[1]+ASCII_1) + " again.");
+						else
+							System.out.println(player2 + " (white) can move piece at " + (char)(to[1]+ASCII_A) + (char)(to[1]+ASCII_1) + " again.");
+					}					
+	
+					display(board);
+				}
+			}
+			
+		} while (!checkWinner(concede, turn, board, player1, player2, startDate, startTime, date, time)); 		
+		
+	}
+	
+	// write previous game's outcome to a file
+	public static void writeFile(String gameSummary) {
+		
+		File f = new File(FILENAME);
+		
+		try {
+			FileWriter write = new FileWriter(f,true);
+			write.append(gameSummary + "\n");
+			write.close();
+		} catch (IOException e) {
+			System.out.println("There was an error: \n" + e.getMessage());
+		}
+	}
+
+	// read previous games file
+	public static void readFile() {
+		
+		try {
+			File f = new File(FILENAME);
+			Scanner read = new Scanner(f);
+			while (read.hasNextLine()) {
+				System.out.println(read.nextLine());
+			}
+			read.close();
+			
+		} catch (Exception e) {
+			System.out.println("There was an error: \n" + e.getMessage());
+		}
+		
+	}
+	
+	// takes move input, checks if there's a typo, takes concede input
+	public static void getMove(Scanner input, int[] arr) {
+		
+		boolean isValid = true;
+		String in;
+		
+		do {
+			// get input for moves
+			in = input.nextLine();
+			in = in.toUpperCase();
+			
+			// check if they typed concede 
+			if (in.equals("CONCEDE")) {
+				arr[0] = -1;
+				arr[1] = -1;
+				isValid = true;
+			// Check if the string is a 2 character sequence
+			} else if(!(in.length() == 2)) {
+				isValid = false;
+			// Convert value of the characters to int 
+			} else {
+				arr[0] = ((int)in.charAt(0) - ASCII_A);
+				arr[1] = ((int)in.charAt(1) - ASCII_1);
+				
+				// Make sure we have values that aren't out of bounds for our array.
+				if (arr[0] > BOARD_SIZE || arr[0] < 0 || arr[1] > BOARD_SIZE || arr[1] < 0)
+					isValid = false;
+				else
+					isValid = true;
+			}
+			if (!isValid)
+				System.out.println("Input invalid, type again: ");
+
+		} while (!isValid);
+		
+	}
+
+	// checks win/lose conditions, carries out concede, writes down who won
+	// return true if a player won
+	public static boolean checkWinner(boolean concede, boolean turn, char[][] board, String player1, String player2, Date startDate, Date startTime, SimpleDateFormat date, SimpleDateFormat time) {
+		
+		boolean winner = false;
+		boolean canMove = false;
+		int black = 0;
+		int white = 0;
+		Date endTime = new Date();
+		
+		// Check how many pieces each player has, and if the active player has any valid moves left
+		for (int r = 0; r < BOARD_SIZE; r++) {
+			for (int c = 0; c < BOARD_SIZE; c++) {
+				// Check for all of black's pieces
+				if (board[r][c] == BLACK || board[r][c] == BKING){
+					black += 1;
+					if (turn) {
+						for (int r2 = 0; r2 < BOARD_SIZE; r2++) {
+							for (int c2 = 0; c2 < BOARD_SIZE; c2++) {
+								if(validMove(false, false, turn, r, c, r2, c2, board))
+									canMove = true;
+							}
+						}
+					}
+				// Check for all of white's pieces
+				} else if (board[r][c] == WHITE || board[r][c] == WKING){
+					white += 1;
+					if(!turn) {
+						for (int r2 = 0; r2 < BOARD_SIZE; r2++) {
+							for (int c2 = 0; c2 < BOARD_SIZE; c2++) {
+								if(validMove(false, false, turn, r, c, r2, c2, board))
+									canMove = true;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// decide what to do with all that information
+		if (black == 0 || (turn && !canMove) || (turn && concede == true)) {
+			// if they typed concede
+			if (turn && concede == true)
+				System.out.println(player1 + " conceded.");
+			// if there are no more pieces on the board
+			else if (black == 0)
+				System.out.println("Black has no more pieces left.");
+			// if neither then there are no more valid moves to make, very rare but can happen
+			else
+				System.out.println("Black has no more valid moves left.");
+			System.out.println("Game over. " + player2 + " won.");
+			writeFile(date.format(startDate) + " - " + player2 + " (won) vs " + player1 + " - " + time.format(startTime) + " to " + time.format(endTime));
+			winner = true;
+		}
+		// same stuff for white
+		else if (white == 0 || (!turn && !canMove) || (!turn && concede == true)) {
+			if (!turn && concede)
+				System.out.println(player2 + " conceded.");
+			else if (white == 0)
+				System.out.println("White has no more pieces left.");
+			else
+				System.out.println("White has no more valid moves left.");
+			System.out.println("Game over. " + player1 + " won.");
+			writeFile(date.format(startDate) + " - " + player1 + " (won) vs " + player2 + " - " + time.format(startTime) + " to " + time.format(endTime));
+			winner = true;
+		}
+		
+		return winner;
+	}
+	
+	// do moves and jumps, make king pieces
+	// Return true if a capture was made and another capture is possible
+	public static boolean movePiece(boolean turn, int fromY, int fromX, int toY, int toX, char[][] board) {
+		
+		boolean capture = false;
+		
+		// take a step
+		board[toY][toX] = board[fromY][fromX];
+		board[fromY][fromX] = EMPTY;		
+		
+		// do capture
+		if (fromY - toY == 2 || fromY - toY == -2) {
+			capture = true;
+			// Moving down and right
+			if (toY - fromY > 0 && toX - fromX > 0) { 
+				if (turn && (board[toY-1][toX-1] == WHITE || board[toY-1][toX-1] == WKING)) {
+					System.out.println("Black captures at " + (char)(toY-1+ASCII_A) + (char)(toX-1+ASCII_1) + ".");
+					board[toY-1][toX-1] = EMPTY;
+				}
+				else if (!turn && (board[toY-1][toX-1] == BLACK || board[toY-1][toX-1] == BKING)) {
+					System.out.println("White captures at " + (char)(toY-1+ASCII_A) + (char)(toX-1+ASCII_1) + ".");
+					board[toY-1][toX-1] = EMPTY;
+				}
+			// Moving down and left
+			} else if (toY - fromY > 0 && toX - fromX < 0) {
+				if (turn && (board[toY-1][toX+1] == WHITE || board[toY-1][toX+1] == WKING)) {
+					System.out.println("Black captures at " + (char)(toY-1+ASCII_A) + (char)(toX+1+ASCII_1) + ".");
+					board[toY-1][toX+1] = EMPTY;
+				}
+				else if (!turn && (board[toY-1][toX+1] == BLACK || board[toY-1][toX+1] == BKING)) {
+					System.out.println("White captures at " + (char)(toY-1+ASCII_A) + (char)(toX+1+ASCII_1) + ".");
+					board[toY-1][toX+1] = EMPTY;
+				}
+			// Moving up and left
+			} else if (toY - fromY < 0 && toX - fromX < 0) {
+				if (turn && (board[toY+1][toX+1] == WHITE || board[toY+1][toX+1] == WKING)) {
+					System.out.println("Black captures at " + (char)(toY+1+ASCII_A) + (char)(toX+1+ASCII_1) + ".");
+					board[toY+1][toX+1] = EMPTY;
+				}
+				else if (!turn && (board[toY+1][toX+1] == BLACK || board[toY+1][toX+1] == BKING)) {
+					System.out.println("White captures at " + (char)(toY+1+ASCII_A) + (char)(toX+1+ASCII_1) + ".");
+					board[toY+1][toX+1] = EMPTY;
+				}
+			// Moving up and right
+			} else if (toY - fromY < 0 && toX - fromX > 0) {
+				if (turn && (board[toY+1][toX-1] == WHITE || board[toY+1][toX-1] == WKING)) {
+					System.out.println("Black captures at " + (char)(toY+1+ASCII_A) + (char)(toX-1+ASCII_1) + ".");
+					board[toY+1][toX-1] = EMPTY;
+				}
+				else if (!turn && (board[toY+1][toX-1] == BLACK || board[toY+1][toX-1] == BKING)) {
+					System.out.println("White captures at " + (char)(toY+1+ASCII_A) + (char)(toX-1+ASCII_1) + ".");
+					board[toY+1][toX-1] = EMPTY;
+				}
+			}
+		}
+		
+		// king moves
+		// black king
+		if (toY == BOARD_SIZE-1) {
+			if (board[toY][toX] == BLACK) {
+				board[toY][toX] = BKING;
+				System.out.println("He became the black king.");
+			}
+		}
+		// white king
+		if (toY == 0) {
+			if (board[toY][toX] == WHITE) {
+				board[toY][toX] = WKING;
+				System.out.println("He became the white king.");
+			}
+		}
+		
+		// Check if the piece which captured can capture again
+		if(capture) {
+			for (int r = 0; r < BOARD_SIZE; r++) {
+				for (int c = 0; c < BOARD_SIZE; c++) {
+					if(validMove(false, true, turn, toY, toX, r, c, board))
+						return true;
+				}
+			}
+		}
+		
+		return false;
+		
+	}
+
+	// checks if the move they are trying to make is valid and if there's a capture attempt happening
+	public static boolean validMove(boolean feedback, boolean checkCapture, boolean turn, int fromY, int fromX, int toY, int toX, char[][] board) {
+		
+		/*  feedback: prints feedback message, unless otherwise specified
+			checkCapture: checks if they can jump with a piece again AFTER having made a capture 
+			turn: corresponds to which color's turn we're on */
+		
+		boolean capture = false;
+		
+		// cases for invalid moves:
+		// 0. they try to move out of the board -- This is handled by the input function
+		
+		/* 1. they try to move an empty space or the other player's piece
+		 	  the feedback messages are now obsolete for these, because the gamePlay method just prints its own message */
+		
+		if (board[fromY][fromX] == EMPTY) {
+			if(feedback)
+				System.out.println("You tried to move an empty space!");
+			return false;
+		}
+		if (turn && (board[fromY][fromX] == WHITE || board[fromY][fromX] == WKING)) {
+			if(feedback)
+				System.out.println("Black player tried to move White pieces.");
+			return false;
+		}
+		if (!turn && (board[fromY][fromX] == BLACK || board[fromY][fromX] == BKING)) {
+			if(feedback)
+				System.out.println("White player tried to move Black pieces.");
+			return false;
+		}
+		// 2. they try to move onto another piece
+		
+		if (board[toY][toX] != EMPTY) {
+			if(feedback)
+				System.out.println("You tried to move onto another piece.");
+			return false;
+		}
+		// 3. they try to not move
+		
+		if (fromY - toY == 0 || fromX - toX == 0) {
+			if(feedback)
+				System.out.println("You are trying to move horizontally, vertically, or to the same location.");
+			return false;
+		}
+		// 3.1 fuckey move
+		
+		if (Math.abs(fromY - toY) != Math.abs(fromX - toX)) {
+			if(feedback)
+				System.out.println("You can't move like that.");
+			return false;
+		}
+			
+		// 4. they try to move backwards	
+		if (turn && toY < fromY || !turn && toY > fromY) {
+				
+		// 	4.1 unless it's a king
+			if (board[fromY][fromX] != BKING && board[fromY][fromX] != WKING) {
+				if(feedback)
+					System.out.println("You tried to move a non-king backwards.");
+				return false;
+			}
+		}
+		// 5. they try to move more than 1 space
+		
+		if (fromY - toY > 2 || fromY - toY < -2) {
+			if(feedback)
+				System.out.println("You are trying to move too far!");
+			return false;
+		}
+		
+		if (fromY - toY == 2 || fromY - toY == -2) {
+		
+		// 	5.1 unless they jump over an enemy
+			
+			if (toY - fromY > 0 && toX - fromX > 0) { // Moving down and right
+				if (turn && (board[toY-1][toX-1] == WHITE || board[toY-1][toX-1] == WKING))
+					capture = true;
+				else if (!turn && (board[toY-1][toX-1] == BLACK || board[toY-1][toX-1] == BKING))
+					capture = true;
+				else {
+					if(feedback)
+						System.out.println("There is no piece for you to jump over to move that far. (1)");
+					return false;
+				}
+			} else if (toY - fromY > 0 && toX - fromX < 0) { // Moving down and left
+				if (turn && (board[toY-1][toX+1] == WHITE || board[toY-1][toX+1] == WKING))
+					capture = true;
+				else if (!turn && (board[toY-1][toX+1] == BLACK || board[toY-1][toX+1] == BKING))
+					capture = true;
+				else {
+					if(feedback)
+						System.out.println("There is no piece for you to jump over to move that far. (2)");
+					return false;
+				}
+			} else if (toY - fromY < 0 && toX - fromX < 0) { // Moving up and left
+				if (turn && (board[toY+1][toX+1] == WHITE || board[toY+1][toX+1] == WKING))
+					capture = true;
+				else if (!turn && (board[toY+1][toX+1] == BLACK || board[toY+1][toX+1] == BKING))
+					capture = true;
+				else {
+					if(feedback)
+						System.out.println("There is no piece for you to jump over to move that far. (3)");
+					return false;
+				}
+			} else if (toY - fromY < 0 && toX - fromX > 0) { // Moving up and right
+				if (turn && (board[toY+1][toX-1] == WHITE || board[toY+1][toX-1] == WKING))
+					capture = true;
+				else if (!turn && (board[toY+1][toX-1] == BLACK || board[toY+1][toX-1] == BKING))
+					capture = true;
+				else {
+					if(feedback)
+						System.out.println("There is no piece for you to jump over to move that far. (4)");
+					return false;
+				}
+			}
+		}
+		
+		// If we are checking for capture, only if a capture was made should we return true.
+		if(!checkCapture)
+			return true;
+		else if (checkCapture && capture)
+			return true;
+		else
+			return false;
+	}
+	
+	// put pieces on board
+	public static char[][] initboard(int size) {
+		
+		char [][]board = new char[size][size];
+		char []token = {BLACK, WHITE};
+		
+		// figure out whether to put a B or W or a space
+		for (int r = 0; r < size; r++) {
+			for (int c = 0; c < size; c++) {
+				if ((r <= 2) || (r >= 5)) {
+					if (((r%2==0) && (c%2 != 0)) || ((r%2 != 0) && (c%2 == 0)))
+						board[r][c] = token[r/5];
+					else
+						board[r][c] = EMPTY;
+				} else {
+					board[r][c] = EMPTY;
+				}
+			}
+		}
+		
+		return board;
+	}
+	
+	// draw the board
+	private static void display(final char [][]board) {
+		
+		char []letter = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
+		
+		// draw numbers on top of the table
+		System.out.printf("\n%4s", " ");
+		for (int i = 0; i < board.length; i++)
+			System.out.printf(" %2d  ", (i + 1));
+		System.out.printf("\n%44s\n", "========================================");
+		
+		// draw letters on left side
+		for (int i = 0; i < board.length; i++) {
+			System.out.printf("%2c  ", letter[i]);
+			
+			// put tokens or spaces in slots
+			for (int j = 0; j < board.length; j++) {
+				System.out.printf("|%2c |", board[i][j]);
+			}
+
+			System.out.println();
+			System.out.printf("%44s\n", "========================================");
+		}
+	}
+
+}
